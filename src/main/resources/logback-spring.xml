@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FightMind AI — Logback Configuration
+  ======================================
+  Features:
+  - traceId and spanId automatically injected into every log line via MDC
+    (populated by Micrometer Tracing / Brave)
+  - Console appender for local development
+  - Rolling file appender for production (max 30 days / 1GB)
+  - Per-environment profiles: dev (verbose) vs prod (minimal)
+  - NO user PII is logged at INFO level or above
+-->
+<configuration>
+
+    <!-- ═════════════════════════════════════════════════
+         Properties
+    ═════════════════════════════════════════════════════ -->
+    <property name="LOG_DIR"  value="logs"/>
+    <property name="APP_NAME" value="fightmind-backend"/>
+
+    <!-- Log pattern includes:
+         - timestamp
+         - log level (padded to 5 chars)
+         - traceId  (from Micrometer Tracing MDC — unique per request)
+         - spanId   (from Micrometer Tracing MDC — unique per DB/AI operation)
+         - thread name
+         - logger name (abbreviated)
+         - the actual message
+    -->
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%blue(${APP_NAME})] [traceId=%X{traceId:-none} spanId=%X{spanId:-none}] [%thread] %cyan(%logger{40}) - %msg%n"/>
+
+    <property name="FILE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${APP_NAME}] [traceId=%X{traceId:-none} spanId=%X{spanId:-none}] [%thread] %logger{40} - %msg%n"/>
+
+    <!-- ═════════════════════════════════════════════════
+         Appenders
+    ═════════════════════════════════════════════════════ -->
+
+    <!-- Console — active in all environments -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Rolling File — active in production
+         Rolls daily + when the file exceeds 50MB.
+         Keeps 30 days of history (max total 1 GB).
+    -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${APP_NAME}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- Roll daily, append date + sequence number -->
+            <fileNamePattern>${LOG_DIR}/${APP_NAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${FILE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Async wrapper for file appender — prevents logging from blocking app threads -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>      <!-- never discard log events -->
+        <includeCallerData>false</includeCallerData>
+        <appender-ref ref="FILE"/>
+    </appender>
+
+    <!-- ═════════════════════════════════════════════════
+         Logger Overrides (per class / package)
+         These complement the levels set in application.yml
+    ═════════════════════════════════════════════════════ -->
+
+    <!-- Auth layer: DEBUG shows register/login flow details -->
+    <logger name="com.fightmind.auth"      level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- Chat: INFO keeps query params visible but never logs message content -->
+    <logger name="com.fightmind.chat"      level="INFO"  additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- Health checker: INFO to see startup + recovery events -->
+    <logger name="com.fightmind.health"    level="INFO"  additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- JWT: WARN only — reduces noise in logs -->
+    <logger name="com.fightmind.jwt"       level="WARN"  additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- Spring Security: WARN (verbose at DEBUG — only enable when debugging auth) -->
+    <logger name="org.springframework.security" level="WARN" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- Hibernate SQL: DEBUG in dev, change to WARN in prod -->
+    <logger name="org.hibernate.SQL"       level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- Flyway migrations -->
+    <logger name="org.flywaydb"            level="INFO"  additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- ═════════════════════════════════════════════════
+         Root Logger
+    ═════════════════════════════════════════════════════ -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </root>
+
+</configuration>

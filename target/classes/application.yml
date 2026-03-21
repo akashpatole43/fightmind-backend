@@ -1,0 +1,161 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# FightMind AI — Spring Boot Application Configuration
+# All sensitive values are loaded from the .env file (spring-dotenv library).
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  application:
+    name: fightmind-backend
+
+  # ── PostgreSQL / JPA ─────────────────────────────────────────────────────
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/fightmind}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:secret}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20         # max DB connections in the pool
+      minimum-idle: 5
+      connection-timeout: 30000     # ms to wait before "no connection" error
+      idle-timeout: 600000          # ms idle connection is kept alive
+
+  jpa:
+    hibernate:
+      ddl-auto: validate            # Flyway manages the schema; JPA only validates
+    show-sql: false                 # set to true for local debugging (overridden in logback)
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  # ── Flyway DB Migrations ─────────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true       # safe for first run against an existing DB
+
+  # ── Redis Cache ──────────────────────────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redispass}
+      timeout: 2000ms               # connection/read timeout
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000         # 1 hour TTL for cached AI responses (ms)
+      key-prefix: "fightmind:"
+      use-key-prefix: true
+
+  # ── Google OAuth2 (Spring Security) ─────────────────────────────────────
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id:     ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - email
+              - profile
+            redirect-uri: "{baseUrl}/oauth2/callback/{registrationId}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Server
+# ─────────────────────────────────────────────────────────────────────────────
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 200                      # max concurrent HTTP request threads
+      min-spare: 10                 # always-on threads
+    connection-timeout: 30s
+  error:
+    include-message: never          # never expose exception messages to clients
+    include-stacktrace: never       # never expose stack traces to clients
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JWT Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+jwt:
+  secret:    ${JWT_SECRET}          # must be ≥ 32 characters
+  expiryMs:  ${JWT_EXPIRY_MS:86400000}  # default: 24 hours
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python AI Service
+# ─────────────────────────────────────────────────────────────────────────────
+python:
+  service:
+    url: ${PYTHON_SERVICE_URL:http://localhost:8000}
+    connectTimeoutMs: 5000          # 5s to establish TCP connection
+    readTimeoutMs: 30000            # 30s for the AI response (Gemini can be slow)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin Seed
+# ─────────────────────────────────────────────────────────────────────────────
+admin:
+  username: fightmind_admin
+  password: ${ADMIN_PASSWORD}       # BCrypt-hashed at runtime by AdminSeeder
+  email:    admin@fightmind.ai
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cloudinary (image uploads)
+# ─────────────────────────────────────────────────────────────────────────────
+cloudinary:
+  cloud-name:  ${CLOUDINARY_CLOUD_NAME}
+  api-key:     ${CLOUDINARY_API_KEY}
+  api-secret:  ${CLOUDINARY_API_SECRET}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Actuator — Centralized Monitoring
+# ONLY the following endpoints are exposed. All others are completely disabled.
+# ─────────────────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized     # full details only for ROLE_ADMIN
+      show-components: when-authorized
+    info:
+      enabled: true
+  info:
+    env:
+      enabled: false                    # NEVER expose env vars (JWT_SECRET etc.)
+    java:
+      enabled: true
+    build:
+      enabled: true
+  # ── Distributed Tracing ───────────────────────────────────────────────────
+  tracing:
+    sampling:
+      probability: 1.0              # trace 100% of requests in dev
+                                    # lower to 0.1 in production for high volume
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logging — per-class levels
+# Fine-tuned per package; traceId/spanId added by logback-spring.xml
+# ─────────────────────────────────────────────────────────────────────────────
+logging:
+  level:
+    root:                                 INFO
+    com.fightmind.auth:                   DEBUG     # detailed auth flow
+    com.fightmind.chat:                   INFO      # AI call params at INFO, content at TRACE
+    com.fightmind.admin:                  INFO
+    com.fightmind.health:                 INFO
+    com.fightmind.jwt:                    WARN      # only errors
+    com.fightmind.config:                 INFO
+    com.fightmind.exception:              INFO
+    org.springframework.security:         WARN
+    org.springframework.web:              INFO
+    org.hibernate.SQL:                    DEBUG     # SQL queries (disable in prod)
+    org.hibernate.type.descriptor.sql:   TRACE      # SQL bind params (disable in prod)
+    org.flywaydb:                         INFO
+    io.micrometer:                        WARN
+  file:
+    name: logs/fightmind-backend.log
