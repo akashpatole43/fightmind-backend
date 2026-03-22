@@ -31,19 +31,34 @@ public class ChatController {
 
     private final ChatService chatService;
 
+    private final CloudinaryService cloudinaryService;
+
     /**
      * Async endpoint — Tomcat thread instantly returns a CompletableFuture.
      * The actual work (Redis -> Python -> Postgres) happens on "aiTaskExecutor".
      */
-    @PostMapping("/send")
+    @PostMapping(value = "/send", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public CompletableFuture<ResponseEntity<ChatResponse>> askQuestion(
             @AuthenticationPrincipal Long userId,
-            @Valid @RequestBody ChatRequest request) {
+            @RequestParam("query") String query,
+            @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image) {
 
         log.debug("Received chat request from user ID {}", userId);
 
-        return chatService.askQuestion(userId, request)
-                .thenApply(ResponseEntity::ok);
+        // Upload image if present, and construct ChatRequest
+        return CompletableFuture.supplyAsync(() -> {
+            String imageUrl = null;
+            if (image != null && !image.isEmpty()) {
+                imageUrl = cloudinaryService.uploadImage(image);
+            }
+            
+            ChatRequest request = new ChatRequest();
+            request.setQuery(query);
+            request.setImageUrl(imageUrl);
+            
+            return request;
+        }).thenCompose(request -> chatService.askQuestion(userId, request))
+          .thenApply(ResponseEntity::ok);
     }
 
     /**
