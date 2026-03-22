@@ -60,7 +60,6 @@ spring:
             scope:
               - email
               - profile
-            redirect-uri: "{baseUrl}/oauth2/callback/{registrationId}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Server
