@@ -119,6 +119,9 @@ public class SecurityConfig {
             // Keep most-specific rules first; fall through to most-general.
             // ══════════════════════════════════════════════════════════════
             .authorizeHttpRequests(auth -> auth
+                
+                // Allow Tomcat internal error and async dispatches
+                .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC, jakarta.servlet.DispatcherType.ERROR, jakarta.servlet.DispatcherType.FORWARD).permitAll()
 
                 // ── PUBLIC — no token required ─────────────────────────
                 .requestMatchers(
@@ -136,9 +139,11 @@ public class SecurityConfig {
                 ).permitAll()
 
                 // Actuator — health + info are public (Docker, UptimeRobot)
+                // Internal Tomcat error dispatcher also needs to be public
                 .requestMatchers(
                         "/actuator/health",
-                        "/actuator/info"
+                        "/actuator/info",
+                        "/error"
                 ).permitAll()
 
                 // ── ADMIN ONLY — metrics, prometheus, admin API ─────────
@@ -169,6 +174,13 @@ public class SecurityConfig {
                             userInfo.userService(oAuth2UserService))
                     .successHandler(oAuth2SuccessHandler)
             )
+
+            // ── Exception Handling (Prevent 302 Redirects for API calls) ───
+            .exceptionHandling(e -> e.defaultAuthenticationEntryPointFor(
+                    new org.springframework.security.web.authentication.HttpStatusEntryPoint(
+                            org.springframework.http.HttpStatus.UNAUTHORIZED),
+                    new org.springframework.security.web.util.matcher.AntPathRequestMatcher("/api/**")
+            ))
 
             // ── JWT Filter (runs before Spring's UsernamePasswordAuthFilter) ─
             .authenticationProvider(authenticationProvider())

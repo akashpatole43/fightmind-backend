@@ -45,17 +45,20 @@ public class ChatController {
 
         log.debug("Received chat request from user ID {}", userId);
 
-        // Upload image if present, and construct ChatRequest
+        // 1. Upload image SYNCHRONOUSLY on the Tomcat Servlet HTTP Thread.
+        // Reading MultipartFile inside an @Async thread causes IllegalStateException 
+        // because Tomcat deletes the temporary file as soon as this method returns.
+        String uploadedUrl = null;
+        if (image != null && !image.isEmpty()) {
+            uploadedUrl = cloudinaryService.uploadImage(image);
+        }
+        final String finalImageUrl = uploadedUrl;
+
+        // 2. Pass the extracted data down to the asynchronous execution pool.
         return CompletableFuture.supplyAsync(() -> {
-            String imageUrl = null;
-            if (image != null && !image.isEmpty()) {
-                imageUrl = cloudinaryService.uploadImage(image);
-            }
-            
             ChatRequest request = new ChatRequest();
             request.setQuery(query);
-            request.setImageUrl(imageUrl);
-            
+            request.setImageUrl(finalImageUrl);
             return request;
         }).thenCompose(request -> chatService.askQuestion(userId, request))
           .thenApply(ResponseEntity::ok);

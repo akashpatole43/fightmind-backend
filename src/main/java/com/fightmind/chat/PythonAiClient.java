@@ -63,7 +63,7 @@ public class PythonAiClient {
                 request.getQuery() != null ? request.getQuery().length() : 0);
 
         return pythonAiRestClient.post()
-                .uri("/api/v1/ask")
+                .uri("/api/v1/chat")
                 .body(request)
                 .retrieve()
                 .body(new ParameterizedTypeReference<PythonResponse>() {});

@@ -1,41 +1,32 @@
 package com.fightmind.config;
 
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
-import java.time.Duration;
-
-/**
- * WebClientConfig — creates a typed RestClient for calling the Python AI service.
- *
- * Uses Spring 6's RestClient (modern replacement for RestTemplate):
- *  - 5s connection timeout  → fail fast if Python is down
- *  - 30s read timeout       → allow Gemini enough time to respond
- *  - Base URL from AppProperties (loaded from .env)
- *
- * PythonAiClient injects this bean and wraps it with @Retryable logic.
- */
 @Configuration
-@RequiredArgsConstructor
 public class WebClientConfig {
 
-    private final AppProperties appProperties;
+    @Value("${python.service.url:http://localhost:8000}")
+    private String pythonServiceUrl;
+
+    @Value("${python.service.connectTimeoutMs:5000}")
+    private int connectTimeoutMs;
+
+    @Value("${python.service.readTimeoutMs:30000}")
+    private int readTimeoutMs;
 
     @Bean
     public RestClient pythonAiRestClient() {
-        AppProperties.PythonService cfg = appProperties.getPythonService();
-
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = 
                 new org.springframework.http.client.SimpleClientHttpRequestFactory();
                 
-        // Fallback: timeouts provided in Application properties 
-        factory.setConnectTimeout(cfg.getConnectTimeoutMs());
-        factory.setReadTimeout(cfg.getReadTimeoutMs());
+        factory.setConnectTimeout(connectTimeoutMs);
+        factory.setReadTimeout(readTimeoutMs);
 
         return RestClient.builder()
-                .baseUrl(cfg.getUrl())
+                .baseUrl(pythonServiceUrl)
                 .requestFactory(factory)
                 .build();
     }

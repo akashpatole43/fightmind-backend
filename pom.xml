@@ -120,6 +120,13 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- ── JSON Logging (Logstash Encoder) ───────── -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
+        </dependency>
+
         <!-- ── Micrometer Tracing (distributed trace IDs) ─ -->
         <dependency>
             <groupId>io.micrometer</groupId>
