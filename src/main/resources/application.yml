@@ -7,6 +7,11 @@ spring:
   application:
     name: fightmind-backend
 
+  # ── Web MVC ──────────────────────────────────────────────────────────────
+  mvc:
+    async:
+      request-timeout: 60000        # 60s timeout to allow Gemini -> Groq fallback chain
+
   # ── PostgreSQL / JPA ─────────────────────────────────────────────────────
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/fightmind}
@@ -89,7 +94,7 @@ python:
   service:
     url: ${PYTHON_SERVICE_URL:http://localhost:8000}
     connectTimeoutMs: 5000          # 5s to establish TCP connection
-    readTimeoutMs: 30000            # 30s for the AI response (Gemini can be slow)
+    readTimeoutMs: 60000            # 60s for the AI response (accounts for Gemini + Groq fallback)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Admin Seed
