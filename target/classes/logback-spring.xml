@@ -15,7 +15,7 @@
     <!-- ═════════════════════════════════════════════════
          Properties
     ═════════════════════════════════════════════════════ -->
-    <property name="LOG_DIR"  value="logs"/>
+    <property name="LOG_DIR"  value="${LOG_PATH:-logs}"/>
     <property name="APP_NAME" value="fightmind-backend"/>
 
     <!-- Log pattern includes:
