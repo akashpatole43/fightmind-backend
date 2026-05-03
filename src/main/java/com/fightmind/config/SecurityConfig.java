@@ -52,6 +52,9 @@ public class SecurityConfig {
     private final CustomOAuth2UserService   oAuth2UserService;
     private final OAuth2SuccessHandler      oAuth2SuccessHandler;
 
+    @org.springframework.beans.factory.annotation.Value("${FRONTEND_URL:http://localhost:5173}")
+    private String frontendUrl;
+
     // ── Password Encoder ────────────────────────────────────────────────────
 
     /**
@@ -87,7 +90,8 @@ public class SecurityConfig {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(List.of(
                 "http://localhost:5173",     // React dev server
-                "http://localhost:3000"      // alternative dev port
+                "http://localhost:3000",     // alternative dev port
+                frontendUrl                  // Production Vercel URL
         ));
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("*"));
